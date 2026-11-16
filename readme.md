@@ -1,133 +1,62 @@
-# MediStack - Equipo 19
+# MediStack - Sistema de Gestión Clínica
 
-Aplicación web para la gestión de una clínica: pacientes, profesionales, agendas, turnos, cobros y caja.
+MediStack es una aplicación web full-stack diseñada para la administración integral de clínicas y consultorios médicos. El sistema centraliza y automatiza la gestión de pacientes, profesionales, agendas, control de turnos, cobros y cierres de caja.
 
-## Tecnologías
+## Tecnologías y Arquitectura
 
-- ASP.NET Web Forms y .NET Framework 4.8
-- C# y ADO.NET
-- Microsoft SQL Server
-- Bootstrap y hojas de estilo propias
+La solución está diseñada bajo una **arquitectura en N-capas** (Web, Negocio, Dominio y Datos), garantizando la separación de responsabilidades y la escalabilidad del código.
 
-La solución separa las responsabilidades en cuatro proyectos: Web, Dominio, Datos y Negocio. La aplicación utiliza autenticación con contraseña almacenada mediante PBKDF2, sesiones y permisos por rol.
+- **Backend:** C# sobre .NET Framework 4.8 y ASP.NET Web Forms.
+- **Acceso a Datos:** ADO.NET con consultas parametrizadas y control transaccional estricto.
+- **Base de Datos:** Microsoft SQL Server (diseño relacional y validación de integridad referencial).
+- **Frontend:** HTML5, CSS3, Bootstrap y hojas de estilo propias.
+- **Seguridad:** Autenticación por sesiones, control de acceso basado en roles (RBAC) y almacenamiento seguro de contraseñas mediante algoritmos de hashing **PBKDF2**.
 
-## Entregables
+## Módulos Principales
 
-- Script SQL Server: [database/01_MediStackDB.sql](database/01_MediStackDB.sql)
-- Diseño de tablas y relaciones: [spec/tablas.md](spec/tablas.md)
-- Estructura prevista Web Forms: [spec/estructura-proyecto.md](spec/estructura-proyecto.md)
-- Solución Visual Studio: [MediStack.sln](MediStack.sln)
+### 1. Gestión Administrativa y Perfiles
+- Administración completa (ABM) de Pacientes, Profesionales, Especialidades, Obras Sociales y Coberturas.
+- Sistema de convenios que vincula dinámicamente obras sociales, coberturas y profesionales/especialidades.
+- Ficha clínica unificada: información personal, historial cronológico de turnos y registros clínicos, y control de afiliaciones.
 
-La primera versión incluye autenticación con SQL Server, PBKDF2, bloqueo temporal después de intentos fallidos, cookie de autenticación y sesión para identidad y rol. La cadena de conexión de ejemplo está en `src/MediStack.Web/Web.config` y se debe ajustar para cada instancia.
+### 2. Motor de Agendas y Turnos
+- Algoritmo de cálculo de disponibilidad en tiempo real basado en horarios de atención de los profesionales, duración de especialidades y turnos vigentes.
+- Prevención automatizada de superposiciones y blindaje contra reservas en horarios fuera de agenda.
+- Flujo de solicitud interactivo con vistas de próximas fechas libres (ventana de 60 días).
+- Gestión transaccional de turnos: reserva, cancelación, y reprogramación (cancela el turno anterior y reserva el nuevo en una única transacción en la base de datos).
+- Vistas de agenda profesional semanal (filtrando cancelaciones y diferenciando reprogramaciones) y vista de detalle diario.
 
-## Compilación y ejecución
+### 3. Facturación y Control de Caja
+- Módulo transaccional para el registro de señas y cobro de consultas médicas.
+- Motor de cálculo de importes de consulta, aplicando automáticamente la cobertura del convenio vigente a la fecha del turno y descontando señas previas.
+- Validación estricta de importes recibidos, cálculo de vueltos y conciliación de caja.
+- Cierres de caja diarios con bloqueo transaccional: una vez ejecutado el cierre, la jornada no admite modificaciones ni cobros retroactivos.
 
-Abrir `MediStack.sln` en Visual Studio, seleccionar `MediStack.Web` como proyecto de inicio y ejecutar con IIS Express. La instancia de SQL Server configurada en `src/MediStack.Web/Web.config` debe estar disponible y tener creada la base `MediStackDB`.
+### 4. Asistente Virtual Integrado (IA)
+- Arquitectura base orientada a interfaces (`IAContratos`, `IProveedorIA`) para integrar un asistente conversacional para pacientes mediante el uso de la API de **Google Gemini**.
+- Utilización del patrón *Factory* para inyectar dependencias y mantener el asistente bloqueado/desacoplado hasta la configuración de credenciales del entorno.
+- Registro transaccional de las interacciones tipadas en la base de datos.
 
-También se puede compilar desde una terminal de desarrollador con:
+## Guía de Despliegue y Ejecución
 
-```powershell
-dotnet build MediStack.sln -c Debug
-```
+### Prerrequisitos
+- Visual Studio (2019 o superior).
+- Microsoft SQL Server (Express o superior).
+- .NET Framework 4.8 SDK.
 
-La compilación no inicia el sitio web; para verlo hay que ejecutarlo con IIS Express desde Visual Studio.
+### Instalación
+1. Clonar el repositorio y abrir la solución `MediStack.sln` en Visual Studio.
+2. Ejecutar el script SQL de inicialización ubicado en `database/01_MediStackDB.sql` para generar el esquema completo en el motor local. *(Para habilitar reprogramaciones de agenda, ejecutar posteriormente `database/07_ReprogramacionesAgenda.sql`)*.
+3. Configurar la cadena de conexión en el archivo `src/MediStack.Web/Web.config` apuntando a la instancia local de SQL Server.
+4. Establecer `MediStack.Web` como proyecto de inicio.
+5. Ejecutar la solución utilizando **IIS Express**.
 
-## Fase 2 - Gestión clínica inicial
-
-Completada para los seis módulos administrativos iniciales:
-
-- Pacientes: listado, búsqueda, alta transaccional de cuenta y perfil, edición y desactivación/reactivación.
-- Profesionales: listado, búsqueda, alta transaccional de cuenta y perfil, edición y desactivación/reactivación.
-- Especialidades: listado, búsqueda, alta, edición y desactivación/reactivación.
-- Obras sociales: listado, búsqueda, alta, edición y desactivación/reactivación.
-- Coberturas: listado, búsqueda, alta, edición y eliminación, respetando las claves foráneas de convenios.
-- Convenios: listado, búsqueda, alta, edición y desactivación/reactivación; mantiene las relaciones con coberturas y profesionales-especialidades.
-
-Las páginas de gestión requieren el rol Administrativo. La capa de datos usa ADO.NET con consultas parametrizadas y transacciones para las altas que crean usuario y perfil. No fue necesario modificar el esquema de `MediStackDB`.
-
-Validación realizada: compilación completa de la solución y pruebas funcionales de búsqueda, edición, estados, altas de los seis módulos y rechazo claro al intentar borrar una cobertura vinculada.
-
-## Fase 3 - Ficha, historial y agendas
-
-Implementada sobre las relaciones que ya existen en `MediStackDB`, sin cambios de esquema:
-
-- Ficha del paciente con información personal, contacto, obra social, afiliación, fecha de alta y porcentajes cubiertos por especialidad.
-- Historial cronológico de turnos con profesional, especialidad, estado y los registros clínicos vinculados al turno.
-- Historial de cobros consultado a través de los turnos del paciente.
-- Acceso a la ficha para pacientes sobre su propia información, profesionales con turnos relacionados y personal administrativo.
-- Agenda diaria de turnos y disponibilidad calculada a partir de `HorariosAtencion`, la duración de la especialidad y los turnos vigentes.
-- Gestión administrativa de franjas semanales: alta, edición, baja/reactivación, prevención de superposiciones y protección de horarios que contienen turnos solicitados o confirmados.
-- Vista de agenda propia, de solo lectura, para profesionales.
-
-Validación realizada: compilación y precompilación de Web Forms; pruebas con datos de demostración para historial, cobros, permisos por rol, disponibilidad, altas y cambios de horarios. Los registros temporales usados para probar la agenda se retiraron.
-
-## Fase 4 - Turnos
-
-Implementada sobre el esquema existente de `MediStackDB`, sin migraciones:
-
-- Solicitud de turnos para pacientes y para personal administrativo, con selección de paciente, profesional y especialidad según el rol.
-- Exploración de disponibilidad por especialidad: profesionales ordenados por disponibilidad real, próximas fechas libres dentro de 60 días, cantidad de fechas, cobertura/seña y horarios disponibles por fecha, con navegación reversible y confirmación previa.
-- Disponibilidad calculada con la agenda activa, duración estándar de la especialidad y turnos solicitados/confirmados; muestra duración, estado y ocupante solo a los roles autorizados.
-- Validación transaccional para impedir horarios fuera de agenda, superposiciones y más de un turno vigente del paciente por especialidad.
-- Consulta de turnos limitada al paciente o profesional autenticado; el personal administrativo puede consultar y gestionar los turnos de la clínica.
-- Confirmación administrativa, cancelación y reprogramación de turnos futuros; la reprogramación cancela el turno anterior y reserva el nuevo en una única transacción.
-- Profesionales y personal administrativo pueden marcar como atendidos o ausentes los turnos confirmados una vez transcurrido el horario.
-
-Validación realizada: rebuild de la solución, precompilación Web Forms, reserva y cancelación desde la página, reprogramación exitosa y rollback cuando el horario de destino está ocupado; rechazo de superposiciones, duplicados y horarios fuera de agenda desde la capa de negocio; comprobación de los alcances por rol. Los turnos creados como datos temporales de prueba se retiraron y no se modificó el esquema.
-
-## Fase 5 - Cobros y Caja
-
-Implementada sobre `Cobros`, `Turnos`, `Convenios` y `CierresCaja`, sin cambios de esquema:
-
-- Personal administrativo puede registrar señas pendientes y consultas de turnos atendidos. Pacientes y profesionales consultan únicamente los cobros de sus propios turnos; solo el personal administrativo registra pagos y accede a Caja.
-- El importe de consulta se calcula con el valor profesional-especialidad, la cobertura de un convenio vigente a la fecha del turno y la seña previamente pagada. Los importes recibidos, vuelto, medio de pago y relación con el turno se validan antes de persistir.
-- La tabla `Cobros` impide más de un cobro por tipo y turno; el alta y la actualización del estado de seña se ejecutan en una transacción.
-- Caja muestra los cobros como ingresos, totales por medio de pago y período, y los cierres existentes. Se puede cerrar el día una sola vez; el cierre calcula sus totales bajo transacción y, una vez cerrado, no admite nuevos cobros para ese día.
-- El esquema no contiene egresos, movimientos de caja independientes, apertura formal ni observaciones por cobro. Por ello, la caja se considera abierta si no hay un registro en `CierresCaja`, el cierre es la operación diaria disponible y el estado de un cobro se deriva del estado de seña o de la consulta registrada.
-- El script de datos de demostración crea un cierre para el día actual. En una base recién inicializada, Caja mostrará ese día como cerrado; el registro de cobros vuelve a habilitarse en el día siguiente. El cierre de demostración se conserva para no alterar los datos existentes.
-
-Validación realizada: rebuild y precompilación de Web Forms; registro y consulta de señas y consultas; cálculo de cobertura/copago, validación de importe recibido y vuelto; rechazo de cobros duplicados y pagos posteriores al cierre; permisos de paciente, profesional y administración; totales por medio, conciliación y cierre diario. Se eliminaron los registros temporales y se restauró el cierre de demostración original de `MediStackDB`.
-
-## Próximas etapas
-
-- Liquidación de honorarios y reportes.
-- Registro público y recuperación de contraseña.
-- Pruebas integrales adicionales y revisión de accesibilidad.
-
-## Etapa futura
-
-Se incorporó una primera base para el asistente de pacientes:
-
-- `AsistentePaciente.aspx` está protegido para el rol `PACIENTE` y permite enviar consultas de texto.
-- `AgenteIAPacienteNegocio` centraliza el flujo y consulta turnos mediante las capas existentes.
-- `InteraccionesIADatos` registra las interacciones en la tabla `InteraccionesIA` con parámetros tipados.
-- La navegación de pacientes incluye el acceso al asistente.
-- `IAContratos.cs` e `IProveedorIA.cs` definen la frontera para conectar más adelante un modelo real con respuestas estructuradas y herramientas allowlist.
-- `ProveedorIAFactory` mantiene el asistente bloqueado hasta que se implemente y configure un adaptador real.
-
-No hay respuestas mock ni clasificación local. El proveedor Gemini ya tiene un adaptador HTTP, pero el asistente informa que no está disponible hasta que se agreguen localmente la API key y el modelo en `secrets.config`. Tampoco se ejecutan reservas, cancelaciones o reprogramaciones desde lenguaje natural.
-
-El adaptador HTTP de Gemini ya está incorporado. `Web.config` selecciona el proveedor con `IA.Proveedor=Gemini` y define el timeout; la API key y el modelo deben agregarse localmente en `src/MediStack.Web/secrets.config`:
+### Configuración del Adaptador de IA (Opcional)
+Para habilitar el asistente inteligente, es necesario configurar las credenciales de la API de Gemini de forma segura (fuera del control de versiones). 
+Crear un archivo `secrets.config` en `src/MediStack.Web/` con la siguiente estructura:
 
 ```xml
 <appSettings>
-  <add key="Gemini.ApiKey" value="CLAVE_DE_GOOGLE_AI_STUDIO" />
-  <add key="Gemini.Modelo" value="MODELO_GEMINI" />
+  <add key="Gemini.ApiKey" value="TU_CLAVE_DE_API" />
+  <add key="Gemini.Modelo" value="gemini-1.5-flash" />
 </appSettings>
-```
-
-La clave no debe guardarse en el repositorio. El adaptador utiliza el endpoint HTTPS `generateContent`, valida errores de autenticación, límites, timeout y respuestas inválidas, y registra el consumo informado por Gemini. Esta etapa permite obtener texto del modelo; todavía no habilita llamadas de herramientas ni operaciones de turnos hasta completar el contrato estructurado y sus validaciones.
-
-## Agenda profesional semanal y diaria
-
-La agenda profesional incluye una vista semanal de lunes a viernes y una vista diaria enlazada desde cada día. La vista semanal muestra únicamente turnos registrados, conserva los cancelados futuros y los cancelados recientes, diferencia las reprogramaciones y avisa cuando existen turnos en fin de semana. La vista diaria presenta el detalle completo de la jornada.
-
-La relación entre el turno original cancelado y el nuevo turno se conserva en `Turnos.TurnoReprogramadoDesdeId`. La migración idempotente `database/07_ReprogramacionesAgenda.sql` debe ejecutarse después de las migraciones anteriores. El panel profesional incluye además el acceso rápido `Jornada de hoy`.
-
-## Preparar para la presentacion
-
-1. Preparar documentacion basica del proyecto     [ ]
-
-2. Preparar una presentacion                     [ ]
-
-3. Repartir partes y practicar                   [ ]
